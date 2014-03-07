@@ -3,6 +3,7 @@ require 'action_view'
 require 'action_view/log_subscriber'
 require 'action_view/context'
 require 'kaminari/helpers/tags'
+require 'core_ext/numeric'
 
 module Kaminari
   module Helpers
@@ -23,6 +24,11 @@ module Kaminari
           h[:left] = outer_window if h[:left] == 0
           h[:right] = options.delete(:right) || Kaminari.config.right
           h[:right] = outer_window if h[:right] == 0
+          decade = options.delete(:decade) || Kaminari.config.decade
+          h[:decade_left] = options.delete(:decade_left) || Kaminari.config.decade_left
+          h[:decade_left] = decade if h[:decade_left] == 0
+          h[:decade_right] = options.delete(:decade_right) || Kaminari.config.decade_right
+          h[:decade_right] = decade if h[:decade_right] == 0
         end
         @template, @options = template, options
         @theme = @options[:theme] ? "#{@options[:theme]}/" : ''
@@ -32,6 +38,9 @@ module Kaminari
         @last = nil
         # initialize the output_buffer for Context
         @output_buffer = ActionView::OutputBuffer.new
+
+        @left_decade = 1.decadeup(@window_options[:decade_left] * 10).to_a
+        @right_decade = @window_options[:total_pages].decadedown(@window_options[:decade_right] * 10).to_a
       end
 
       # render given block as a view template
@@ -44,13 +53,15 @@ module Kaminari
       # Because of performance reason, this doesn't actually enumerate all pages but pages that are seemingly relevant to the paginator.
       # "Relevant" pages are:
       # * pages inside the left outer window plus one for showing the gap tag
+      # * pages inside the left decade
       # * pages inside the inner window plus one on the left plus one on the right for showing the gap tags
+      # * pages inside the right decade
       # * pages inside the right outer window plus one for showing the gap tag
       def each_relevant_page
         return to_enum(:each_relevant_page) unless block_given?
 
         relevant_pages(@window_options).each do |i|
-          yield PageProxy.new(@window_options, i, @last)
+          yield PageProxy.new(@window_options, i, @last, @left_decade, @right_decade)
         end
       end
       alias each_page each_relevant_page
@@ -59,8 +70,10 @@ module Kaminari
         left_window_plus_one = 1.upto(options[:left] + 1).to_a
         right_window_plus_one = (options[:total_pages] - options[:right]).upto(options[:total_pages]).to_a
         inside_window_plus_each_sides = (options[:current_page] - options[:window] - 1).upto(options[:current_page] + options[:window] + 1).to_a
+        left_decade = @left_decade
+        right_decade = @right_decade
 
-        (left_window_plus_one + inside_window_plus_each_sides + right_window_plus_one).uniq.sort.reject {|x| (x < 1) || (x > options[:total_pages])}
+        (left_window_plus_one + left_decade + inside_window_plus_each_sides + right_decade + right_window_plus_one).uniq.sort.reject {|x| (x < 1) || (x > options[:total_pages])}
       end
       private :relevant_pages
 
@@ -110,8 +123,10 @@ module Kaminari
       class PageProxy
         include Comparable
 
-        def initialize(options, page, last) #:nodoc:
+        def initialize(options, page, last, left_decade = [], right_decade = []) #:nodoc:
           @options, @page, @last = options, page, last
+          @left_decade = left_decade
+          @right_decade = right_decade
         end
 
         # the page number
@@ -146,17 +161,27 @@ module Kaminari
 
         # within the left outer window or not
         def left_outer?
-          @page <= @options[:left]
+          @page <= @options[:left] && !left_decade?
         end
 
         # within the right outer window or not
         def right_outer?
-          @options[:total_pages] - @page < @options[:right]
+          @options[:total_pages] - @page < @options[:right] && !right_decade?
         end
 
         # inside the inner window or not
         def inside_window?
           (@options[:current_page] - @page).abs <= @options[:window]
+        end
+
+        # within the left decade
+        def left_decade?
+          @left_decade.include? @page 
+        end
+
+        # within the left decade
+        def right_decade?
+          @right_decade.include? @page 
         end
 
         # The last rendered tag was "truncated" or not

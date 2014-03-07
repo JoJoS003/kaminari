@@ -1,4 +1,5 @@
 require 'active_support/configurable'
+require 'core_ext/numeric'
 
 module Kaminari
   # Configures global settings for Kaminari
@@ -23,6 +24,9 @@ module Kaminari
     config_accessor :outer_window
     config_accessor :left
     config_accessor :right
+    config_accessor :decade
+    config_accessor :decade_left
+    config_accessor :decade_right
     config_accessor :page_method_name
     config_accessor :max_pages
 
@@ -44,6 +48,9 @@ module Kaminari
     config.outer_window = 0
     config.left = 0
     config.right = 0
+    config.decade = 0
+    config.decade_left = 0
+    config.decade_right = 0
     config.page_method_name = :page
     config.param_name = :page
     config.max_pages = nil

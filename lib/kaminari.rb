@@ -31,6 +31,7 @@ require 'kaminari/helpers/paginator'
 require 'kaminari/models/page_scope_methods'
 require 'kaminari/models/configuration_methods'
 require 'kaminari/hooks'
+require 'core_ext/numeric'
 
 # if not using Railtie, call `Kaminari::Hooks.init` directly
 if defined? Rails
