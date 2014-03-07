@@ -30,7 +30,7 @@ class Numeric
 
   def decadedown(to)
     d = prev_decade
-    ary = []
+    ary = [d]
     while d > to
       d = d.prev_decade
       ary << d

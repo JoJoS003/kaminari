@@ -40,7 +40,7 @@ module Kaminari
         @output_buffer = ActionView::OutputBuffer.new
 
         @left_decade = 1.decadeup(@window_options[:decade_left] * 10).to_a
-        @right_decade = @window_options[:total_pages].decadedown(@window_options[:decade_right] * 10).to_a
+        @right_decade = @window_options[:total_pages].decadedown(@window_options[:total_pages] - @window_options[:decade_right] * 10).to_a
       end
 
       # render given block as a view template
