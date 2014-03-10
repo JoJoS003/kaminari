@@ -130,11 +130,14 @@ module Kaminari
       params = options.delete(:params) || {}
       param_name = options.delete(:param_name) || Kaminari.config.param_name
 
-      output = ""
+      output = []
       output << '<link rel="next" href="' + url_for(params.merge(param_name => scope.next_page, :only_path => true)) + '"/>' if scope.next_page
-      output << '<link rel="prev" href="' + url_for(params.merge(param_name => scope.prev_page, :only_path => true)) + '"/>' if scope.prev_page
+      if scope.prev_page
+        prev_url = scope.prev_page == 1 ? url_for(params.merge(:only_path => true)) : url_for(params.merge(param_name => scope.prev_page, :only_path => true))
+        output << '<link rel="prev" href="' + prev_url + '"/>'
+      end
 
-      output.html_safe
+      output.join("\n").html_safe
     end
   end
 end
