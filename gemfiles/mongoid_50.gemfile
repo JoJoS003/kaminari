@@ -1,11 +1,8 @@
 source 'https://rubygems.org'
 
-gem 'railties', '>= 3.2.3'
-gem 'mongoid', '~> 3.0.0'
+gem 'railties', '~> 4.0'
+gem 'mongoid', '~> 5.0.0'
 gem 'rspec-rails', '~> 2.14.1'
-gem 'origin'
-gem 'moped'
-gem 'activesupport', '~> 3.2.18'
 
 if RUBY_VERSION > '1.9.3'
   gem 'mime-types'
@@ -13,14 +10,18 @@ else
   gem 'mime-types', '2.99'
 end
 
+group :development, :test do
+  gem 'database_cleaner', '~> 1.5.1'
+end
+
 platforms :mri do
-  gem 'test-unit' if RUBY_VERSION > "2.1.0"
+  gem 'test-unit' if RUBY_VERSION > '2.1.0'
 end
 
 platforms :rbx do
   gem 'rubysl', '~> 2.0'
   gem 'racc'
-  gem 'rubysl-test-unit', github: 'rubysl/rubysl-test-unit', branch: '2.0'
+  gem 'minitest'
   gem 'rubinius-developer_tools'
 end
 

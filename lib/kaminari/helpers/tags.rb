@@ -1,12 +1,14 @@
 module Kaminari
   module Helpers
+    PARAM_KEY_BLACKLIST = :authenticity_token, :commit, :utf8, :_method, :script_name
+
     # A tag stands for an HTML tag inside the paginator.
     # Basically, a tag has its own partial template file, so every tag can be
     # rendered into String using its partial template.
     #
     # The template file should be placed in your app/views/kaminari/ directory
     # with underscored class name (besides the "Tag" class. Tag is an abstract
-    # class, so _tag parital is not needed).
+    # class, so _tag partial is not needed).
     #   e.g.)  PrevLink  ->  app/views/kaminari/_prev_link.html.erb
     #
     # When no matching template were found in your app, the engine's pre
@@ -16,16 +18,50 @@ module Kaminari
       def initialize(template, options = {}) #:nodoc:
         @template, @options = template, options.dup
         @param_name = @options.delete(:param_name) || Kaminari.config.param_name
-        @theme = @options[:theme] ? "#{@options.delete(:theme)}/" : ''
-        @params = @options[:params] ? template.params.merge(@options.delete :params) : template.params
+        @theme = @options.delete(:theme)
+        @views_prefix = @options.delete(:views_prefix)
+        @params = template.params
+        # @params in Rails 5 no longer inherits from Hash
+        @params = @params.to_unsafe_h if @params.respond_to?(:to_unsafe_h)
+        @params = @params.with_indifferent_access.except(*PARAM_KEY_BLACKLIST).merge(@options.delete(:params) || {})
       end
 
       def to_s(locals = {}) #:nodoc:
-        @template.render :partial => "kaminari/#{@theme}#{self.class.name.demodulize.underscore}", :locals => @options.merge(locals), :formats => [:html]
+        @template.render :partial => partial_path, :locals => @options.merge(locals), :formats => [:html]
       end
 
       def page_url_for(page)
-        @template.url_for @params.merge(@param_name => (page <= 1 ? nil : page), :only_path => true)
+        @template.url_for params_for(page).merge(:only_path => true)
+      end
+
+      private
+
+      def params_for(page)
+        page_params = Rack::Utils.parse_nested_query("#{@param_name}=#{page}")
+        page_params = @params.deep_merge(page_params)
+
+        if !Kaminari.config.params_on_first_page && (page <= 1)
+          # This converts a hash:
+          #   from: {other: "params", page: 1}
+          #     to: {other: "params", page: nil}
+          #   (when @param_name == "page")
+          #
+          #   from: {other: "params", user: {name: "yuki", page: 1}}
+          #     to: {other: "params", user: {name: "yuki", page: nil}}
+          #   (when @param_name == "user[page]")
+          @param_name.to_s.scan(/[\w\.]+/)[0..-2].inject(page_params){|h, k| h[k] }[$&] = nil
+        end
+
+        page_params
+      end
+
+      def partial_path
+        [
+         @views_prefix,
+         "kaminari",
+         @theme,
+         self.class.name.demodulize.underscore
+        ].compact.join("/")
       end
     end
 

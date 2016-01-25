@@ -1,6 +1,6 @@
 require 'spec_helper'
 
-describe 'Kaminari::ActionViewExtension', :if => defined?(Rails)do
+describe 'Kaminari::ActionViewExtension', :if => defined?(Rails) do
   describe '#paginate' do
     before do
       50.times {|i| User.create! :name => "user#{i}"}
@@ -15,27 +15,54 @@ describe 'Kaminari::ActionViewExtension', :if => defined?(Rails)do
         lambda { helper.escape_javascript(helper.paginate @users, :params => {:controller => 'users', :action => 'index'}) }.should_not raise_error
       end
     end
+
+    context 'accepts :theme option' do
+      before { helper.controller.append_view_path "spec/fake_app/views" }
+      subject { helper.paginate @users, :theme => "bootstrap", :params => {:controller => 'users', :action => 'index'} }
+      it { should match(/bootstrap-paginator/) }
+      it { should match(/bootstrap-page-link/) }
+    end
+
+    context 'accepts :view_prefix option' do
+      before { helper.controller.append_view_path "spec/fake_app/views" }
+      subject { helper.paginate @users, :views_prefix => "alternative/", :params => {:controller => 'users', :action => 'index'} }
+      it { should eq("  <b>1</b>\n") }
+    end
+
+    context "num_pages: 3" do
+      subject { helper.paginate @users, :num_pages => 3, :params => {:controller => 'users', :action => 'index'} }
+      it { should match(/<a href="\/users\?page=3">Last/) }
+    end
   end
 
   describe '#link_to_previous_page' do
     before do
-      50.times {|i| User.create! :name => "user#{i}"}
+      60.times {|i| User.create! :name => "user#{i}"}
     end
 
     context 'having previous pages' do
       before do
-        @users = User.page(50)
+        @users = User.page(3)
       end
 
       context 'the default behaviour' do
         subject { helper.link_to_previous_page @users, 'Previous', :params => {:controller => 'users', :action => 'index'} }
-        it { should be_a String }
-        it { should match(/rel="previous"/) }
+        it { should match(/page=2/) }
+        it { should match(/rel="prev"/) }
       end
 
       context 'overriding rel=' do
         subject { helper.link_to_previous_page @users, 'Previous', :rel => 'external', :params => {:controller => 'users', :action => 'index'} }
         it { should match(/rel="external"/) }
+      end
+
+      context 'with params' do
+        before do
+          helper.params[:status] = "active"
+        end
+
+        subject { helper.link_to_previous_page @users, 'Previous', :params => {:controller => 'users', :action => 'index'} }
+        it { should match(/status=active/) }
       end
     end
 
@@ -45,6 +72,13 @@ describe 'Kaminari::ActionViewExtension', :if => defined?(Rails)do
       end
 
       subject { helper.link_to_previous_page @users, 'Previous', :params => {:controller => 'users', :action => 'index'} }
+      it { should_not be }
+    end
+
+    context 'out of range' do
+      before { @users = User.page(5) }
+
+      subject { helper.link_to_next_page @users, 'More', :params => {:controller => 'users', :action => 'index'} }
       it { should_not be }
     end
   end
@@ -61,7 +95,7 @@ describe 'Kaminari::ActionViewExtension', :if => defined?(Rails)do
 
       context 'the default behaviour' do
         subject { helper.link_to_next_page @users, 'More', :params => {:controller => 'users', :action => 'index'} }
-        it { should be_a String }
+        it { should match(/page=2/) }
         it { should match(/rel="next"/) }
       end
 
@@ -69,12 +103,28 @@ describe 'Kaminari::ActionViewExtension', :if => defined?(Rails)do
         subject { helper.link_to_next_page @users, 'More', :rel => 'external', :params => {:controller => 'users', :action => 'index'} }
         it { should match(/rel="external"/) }
       end
+
+      context 'with params' do
+        before do
+          helper.params[:status] = "active"
+        end
+
+        subject { helper.link_to_next_page @users, 'More', :params => {:controller => 'users', :action => 'index'} }
+        it { should match(/status=active/) }
+      end
     end
 
     context 'the last page' do
       before do
         @users = User.page(2)
       end
+
+      subject { helper.link_to_next_page @users, 'More', :params => {:controller => 'users', :action => 'index'} }
+      it { should_not be }
+    end
+
+    context 'out of range' do
+      before { @users = User.page(5) }
 
       subject { helper.link_to_next_page @users, 'More', :params => {:controller => 'users', :action => 'index'} }
       it { should_not be }
@@ -248,38 +298,31 @@ describe 'Kaminari::ActionViewExtension', :if => defined?(Rails)do
 
   describe '#rel_next_prev_link_tags' do
     before do
-      80.times {|i| User.create! :name => "user#{i}"}
+      31.times {|i| User.create! :name => "user#{i}"}
     end
 
-    context 'the first page' do
-      before do
-        @users = User.page(1).per(25)
-      end
+    subject { helper.rel_next_prev_link_tags users, :params => {:controller => 'users', :action => 'index'} }
 
-      subject { helper.rel_next_prev_link_tags @users, :params => {:controller => 'users', :action => 'index'} }
+    context 'the first page' do
+      let(:users) { User.page(1).per(10) }
+
       it { should_not match(/rel="prev"/) }
       it { should match(/rel="next"/) }
       it { should match(/\?page=2/) }
     end
 
-    context 'the middle page' do
-      before do
-        @users = User.page(3).per(25)
-      end
+    context 'the second page' do
+      let(:users) { User.page(2).per(10) }
 
-      subject { helper.rel_next_prev_link_tags @users, :params => {:controller => 'users', :action => 'index'} }
       it { should match(/rel="prev"/) }
-      it { should match(/\?page=2/) }
+      it { should_not match(/\?page=1/) }
       it { should match(/rel="next"/) }
-      it { should match(/\?page=4/) }
+      it { should match(/\?page=3/) }
     end
 
     context 'the last page' do
-      before do
-        @users = User.page(4).per(25)
-      end
+      let(:users) { User.page(4).per(10) }
 
-      subject { helper.rel_next_prev_link_tags @users, :params => {:controller => 'users', :action => 'index'} }
       it { should match(/rel="prev"/) }
       it { should match(/\?page=3"/) }
       it { should_not match(/rel="next"/) }

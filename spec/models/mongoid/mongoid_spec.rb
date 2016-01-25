@@ -1,6 +1,20 @@
 require 'spec_helper'
 
 if defined? Mongoid
+  describe Kaminari::MongoidCriteriaMethods do
+    describe "#total_count" do
+      before do
+        2.times {|i| User.create!(:salary => i) }
+      end
+
+      context "when the scope is cloned" do
+        it "should reset total_count memoization" do
+          User.page.tap(&:total_count).where(:salary => 1).total_count.should == 1
+        end
+      end
+    end
+  end
+
   describe Kaminari::MongoidExtension do
     before(:each) do
       41.times do
@@ -123,6 +137,8 @@ if defined? Mongoid
 
       context "with database:", :if => Mongoid::VERSION >= '3' do
         before :all do
+          User.with(:database => "default_db").delete_all
+          User.with(:database => "other_db").delete_all
           15.times { User.with(:database => "default_db").create!(:salary => 1) }
           10.times { User.with(:database => "other_db").create!(:salary => 1) }
         end
@@ -191,6 +207,23 @@ if defined? Mongoid
         its(:prev_page) { should be_nil }
         its(:next_page) { should == 2 }
         its(:total_pages) { should == 2 }
+      end
+    end
+
+    describe '#paginates_per' do
+      context 'when paginates_per is not defined in superclass' do
+        subject { Product.all.page 1 }
+        its(:limit_value) { should == 25 }
+      end
+
+      context 'when paginates_per is defined in subclass' do
+        subject { Device.all.page 1 }
+        its(:limit_value) { should == 100 }
+      end
+
+      context 'when paginates_per is defined in subclass of subclass' do
+        subject { Android.all.page 1 }
+        its(:limit_value) { should == 200 }
       end
     end
   end

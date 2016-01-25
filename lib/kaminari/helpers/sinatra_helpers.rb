@@ -1,5 +1,6 @@
 require 'active_support/core_ext/object'
 require 'active_support/core_ext/string'
+require 'action_dispatch/http/mime_type'
 
 begin
 
@@ -44,7 +45,7 @@ module Kaminari::Helpers
 
       def url_for(params)
         extra_params = {}
-        if page = params[@param_name] and page != 1
+        if (page = params[@param_name]) && (Kaminari.config.params_on_first_page || page != 1)
           extra_params[@param_name] = page
         end
         query = @current_params.merge(extra_params)
@@ -115,11 +116,11 @@ module Kaminari::Helpers
         param_name = options.delete(:param_name) || Kaminari.config.param_name
         placeholder = options.delete(:placeholder)
 
-        unless scope.first_page?
+        if scope.first_page?
+          placeholder.to_s.html_safe
+        else
           query = params.merge(param_name => scope.prev_page)
           link_to name, env['PATH_INFO'] + (query.empty? ? '' : "?#{query.to_query}"), options.reverse_merge(:rel => 'previous')
-        else
-          placeholder
         end
       end
 
@@ -145,11 +146,11 @@ module Kaminari::Helpers
         param_name = options.delete(:param_name) || Kaminari.config.param_name
         placeholder = options.delete(:placeholder)
 
-        unless scope.last_page?
+        if scope.last_page? || scope.out_of_range?
+          placeholder.to_s.html_safe
+        else
           query = params.merge(param_name => scope.next_page)
           link_to name, env['PATH_INFO'] + (query.empty? ? '' : "?#{query.to_query}"), options.reverse_merge(:rel => 'next')
-        else
-          placeholder
         end
       end
     end

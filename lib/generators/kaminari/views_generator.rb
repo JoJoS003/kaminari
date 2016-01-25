@@ -24,11 +24,12 @@ BANNER
       def copy_or_fetch #:nodoc:
         return copy_default_views if file_name == 'default'
 
-        themes = self.class.themes
-        if theme = themes.detect {|t| t.name == file_name}
-          download_templates theme
+        if theme = self.class.themes.detect {|t| t.name == file_name}
+          if download_templates(theme).empty?
+            say %Q[template_engine: #{template_engine} is not available for theme: #{file_name}]
+          end
         else
-          say %Q[no such theme: #{file_name}\n  avaliable themes: #{themes.map(&:name).join ", "}]
+          say %Q[no such theme: #{file_name}\n  available themes: #{self.class.themes.map(&:name).join ", "}]
         end
       end
 
@@ -89,17 +90,17 @@ BANNER
       end
 
       def templates_for(template_engine) #:nodoc:
-        @templates.select {|t| !t.description?}.select {|t| !t.view? || (t.engine == template_engine)}
+        @templates.select {|t| t.engine == template_engine }
       end
     end
 
     module GitHubApiHelper
       def get_files_in_master
         master_tree_sha = open('https://api.github.com/repos/amatsuda/kaminari_themes/git/refs/heads/master') do |json|
-          ActiveSupport::JSON.decode(json)['object']['sha']
+          ActiveSupport::JSON.decode(json.read)['object']['sha']
         end
         open('https://api.github.com/repos/amatsuda/kaminari_themes/git/trees/' + master_tree_sha + '?recursive=1') do |json|
-          blobs = ActiveSupport::JSON.decode(json)['tree'].find_all {|i| i['type'] == 'blob' }
+          blobs = ActiveSupport::JSON.decode(json.read)['tree'].find_all {|i| i['type'] == 'blob' }
           blobs.map do |blob|
             [blob['path'], blob['sha']]
           end
@@ -109,7 +110,7 @@ BANNER
 
       def get_content_for(path)
         open('https://api.github.com/repos/amatsuda/kaminari_themes/contents/' + path) do |json|
-          Base64.decode64(ActiveSupport::JSON.decode(json)['content'])
+          Base64.decode64(ActiveSupport::JSON.decode(json.read)['content'])
         end
       end
       module_function :get_content_for

@@ -1,6 +1,6 @@
 class User
   include ::Mongoid::Document
-  if Mongoid::VERSION > '4.0.0'
+  if Mongoid::VERSION >= '4.0.0'
     include Mongoid::Attributes::Dynamic
   end
 
@@ -10,6 +10,18 @@ end
 
 class User::Address
   include ::Mongoid::Document
+end
+
+class Product
+  include ::Mongoid::Document
+end
+
+class Device < Product
+  paginates_per 100
+end
+
+class Android < Device
+  paginates_per 200
 end
 
 class MongoMongoidExtensionDeveloper

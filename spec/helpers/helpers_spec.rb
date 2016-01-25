@@ -8,8 +8,17 @@ describe 'Kaminari::Helpers::Paginator' do
       params { {} }
       options { {} }
       url_for {|h| "/foo?page=#{h[:page]}"}
+      link_to { "<a href='#'>link</a>" }
     end
     r
+  end
+
+  describe "view helper methods delegated to template" do
+    before do
+      @paginator = Paginator.new(template, :params => {})
+    end
+    subject { @paginator.link_to("link", "#") }
+    it { should == "<a href='#'>link</a>" }
   end
 
   describe '#params' do
@@ -17,7 +26,22 @@ describe 'Kaminari::Helpers::Paginator' do
       @paginator = Paginator.new(template, :params => {:controller => 'foo', :action => 'bar'})
     end
     subject { @paginator.page_tag(template).instance_variable_get('@params') }
-    it { should == {:controller => 'foo', :action => 'bar'} }
+    it { should == {'controller' => 'foo', 'action' => 'bar'} }
+
+    context "when params has form params" do
+      before do
+        stub(template).params do
+          {
+            :authenticity_token => "token",
+            :commit => "submit",
+            :utf8 => "true",
+            :_method => "patch"
+          }
+        end
+      end
+
+      it { should == {'controller' => 'foo', 'action' => 'bar'} }
+    end
   end
 
   describe '#param_name' do

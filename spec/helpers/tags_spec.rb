@@ -2,6 +2,86 @@ require 'spec_helper'
 include Kaminari::Helpers
 
 describe 'Kaminari::Helpers' do
+  describe 'Tag' do
+    describe '#page_url_for', :if => defined?(Rails) do
+      before do
+        helper.params[:controller] = 'users'
+        helper.params[:action]     = 'index'
+      end
+
+      context "for first page" do
+        subject { Tag.new(helper).page_url_for(1) }
+        it { should == "/users" }
+
+        context 'config.params_on_first_page == false' do
+          before { Kaminari.config.params_on_first_page = true }
+          after  { Kaminari.config.params_on_first_page = false }
+          it { should == "/users?page=1" }
+        end
+      end
+
+      context "with a friendly route setting" do
+        before do
+          helper.params[:controller] = 'addresses'
+          helper.params[:action]     = 'index'
+          helper.params[:page]       = 3
+        end
+
+        context "for first page" do
+          subject { Tag.new(helper).page_url_for(1) }
+          it { should == "/addresses" }
+
+          context 'config.params_on_first_page == false' do
+            before { Kaminari.config.params_on_first_page = true }
+            after  { Kaminari.config.params_on_first_page = false }
+            it { should match("/addresses/page/1") }
+          end
+        end
+
+        context "for other page" do
+          subject { Tag.new(helper).page_url_for(5) }
+          it { should == "/addresses/page/5" }
+        end
+      end
+
+      context "with param_name = 'user[page]' option" do
+        before do
+          helper.params[:user] = {:page => "3", :scope => "active"}
+        end
+
+        context "for first page" do
+          subject { Tag.new(helper, :param_name => "user[page]").page_url_for(1) }
+
+          it { should_not match(/user%5Bpage%5D=\d+/) } # not match user[page]=\d+
+          it { should match(/user%5Bscope%5D=active/) } #     match user[scope]=active
+        end
+
+        context "for other page" do
+          subject { Tag.new(helper, :param_name => "user[page]").page_url_for(2) }
+
+          it { should match(/user%5Bpage%5D=2/) }       # match user[page]=2
+          it { should match(/user%5Bscope%5D=active/) } # match user[scope]=active
+        end
+      end
+
+      context "with param_name = 'foo.page' option" do
+        before do
+          helper.params['foo.page'] = 2
+        end
+
+        context "for first page" do
+          subject { Tag.new(helper, :param_name => "foo.page").page_url_for(1) }
+          it { should_not match(/foo\.page=\d+/) }
+        end
+
+        context "for other page" do
+          subject { Tag.new(helper, :param_name => "foo.page").page_url_for(2) }
+          it { should match(/foo\.page=\d+/) }
+        end
+      end
+    end
+  end
+
   describe 'Paginator' do
     describe 'Paginator::PageProxy' do
       describe '#current?' do
@@ -133,6 +213,72 @@ describe 'Kaminari::Helpers' do
         context 'last.is not a Gap' do
           subject { Paginator::PageProxy.new({}, 10, Page.new(@template)) }
           its(:was_truncated?) { should_not be_true }
+        end
+      end
+      describe "#single_gap?" do
+        let(:window_options) do
+          {
+            :left => 1,
+            :window => 1,
+            :right => 1,
+            :total_pages => 9
+          }
+        end
+
+        def gap_for(page)
+          Paginator::PageProxy.new(window_options, page, nil)
+        end
+
+        context "in case of '1 ... 4 5 6 ... 9'" do
+          before { window_options[:current_page] = 5 }
+
+          its("gap for 2") { gap_for(2).should_not be_a_single_gap }
+          its("gap for 3") { gap_for(3).should_not be_a_single_gap }
+          its("gap for 7") { gap_for(7).should_not be_a_single_gap }
+          its("gap for 8") { gap_for(8).should_not be_a_single_gap }
+        end
+
+        context "in case of '1 ... 3 4 5 ... 9'" do
+          before { window_options[:current_page] = 4 }
+
+          its("gap for 2") { gap_for(2).should be_a_single_gap }
+          its("gap for 6") { gap_for(6).should_not be_a_single_gap }
+          its("gap for 8") { gap_for(8).should_not be_a_single_gap }
+        end
+
+        context "in case of '1 ... 3 4 5 ... 7'" do
+          before do
+            window_options[:current_page] = 4
+            window_options[:total_pages] = 7
+          end
+
+          its("gap for 2") { gap_for(2).should be_a_single_gap }
+          its("gap for 6") { gap_for(6).should be_a_single_gap }
+        end
+
+        context "in case of '1 ... 5 6 7 ... 9'" do
+          before { window_options[:current_page] = 6 }
+
+          its("gap for 2") { gap_for(2).should_not be_a_single_gap }
+          its("gap for 4") { gap_for(4).should_not be_a_single_gap }
+          its("gap for 8") { gap_for(8).should be_a_single_gap }
+        end
+      end
+
+      describe "#out_of_range?" do
+        context 'within range' do
+          subject { Paginator::PageProxy.new({:total_pages => 5}, 4, nil).out_of_range? }
+          it { should == false }
+        end
+
+        context 'on last page' do
+          subject { Paginator::PageProxy.new({:total_pages => 5}, 5, nil).out_of_range? }
+          it { should == false }
+        end
+
+        context 'out of range' do
+          subject { Paginator::PageProxy.new({:total_pages => 5}, 6, nil).out_of_range? }
+          it { should == true }
         end
       end
     end

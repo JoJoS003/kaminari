@@ -14,6 +14,12 @@ if defined? ActiveRecord
         @books.each {|book| book.readers << @readers }
       end
 
+      context "when the scope is cloned" do
+        it "should reset total_count memoization" do
+          User.page.tap(&:total_count).where(:name => 'author').total_count.should == 1
+        end
+      end
+
       context "when the scope includes an order which references a generated column" do
         it "should successfully count the results" do
           @author.readers.by_read_count.page(1).total_count.should == @readers.size
@@ -22,7 +28,7 @@ if defined? ActiveRecord
 
       context "when the scope use conditions on includes" do
         it "should keep includes and successfully count the results" do
-          # Only @author and @author2 have books titled with the title00x partern
+          # Only @author and @author2 have books titled with the title00x pattern
           if ActiveRecord::VERSION::STRING >= "4.1.0"
             User.includes(:books_authored).references(:books).where("books.title LIKE 'title00%'").page(1).total_count.should == 2
           else
